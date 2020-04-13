@@ -20,8 +20,9 @@ from threading import Thread
 
 SERVER_ADDRESS = "0.0.0.0" # LISTENING ADDRESS
 SERVER_PORT = 7110
-CLIENT_ADDRESS = "tokyo.local" # SEND TO ADDRESS
-CLIENT_PORT = 7111
+PRIMARY_ADDRESS = "172.22.22.107" # SEND TO ADDRESS
+BACKUP_ADDRESS = "172.22.22.108"
+CLIENT_PORT = 7112
 INPUTSTATE = [0, 0, 0]
 ADCSTATE = [0, 0, 0 ,0]
 TIMER = 0
@@ -89,14 +90,14 @@ class ADCchecker:
 	def run(self):
 		# CLIENT
 		parser_client = argparse.ArgumentParser()
-		parser_client.add_argument("--ip", default=CLIENT_ADDRESS,
+		parser_client.add_argument("--ip", default=PRIMARY_ADDRESS,
 				help="The ip of the OSC server")
 		parser_client.add_argument("--port", type=int, default=CLIENT_PORT,
 				help="The port the OSC server is listening on")
 		args_client = parser_client.parse_args()
 
 		client = udp_client.SimpleUDPClient(args_client.ip, args_client.port)
-		log.info("Sending to OSC host "+CLIENT_ADDRESS)
+		log.info("Sending to OSC host "+PRIMARY_ADDRESS)
 		while self._running:
 			i = 0
 			while (i < 3):
@@ -109,8 +110,8 @@ class ADCchecker:
 					log.info("ADC "+str(i+1)+" = "+str(ADCvalue))
 					try:
 						automationhat.light.comms.write(0.1)
-						log.info("Sending OSC to "+CLIENT_ADDRESS+": /adc/"+str(i+1)+" "+str(ADCvalue))
-						print("Sending OSC to "+CLIENT_ADDRESS+": /adc/"+str(i+1)+" "+str(ADCvalue))
+						log.info("Sending OSC to "+PRIMARY_ADDRESS+": /adc/"+str(i+1)+" "+str(ADCvalue))
+						print("Sending OSC to "+PRIMARY_ADDRESS+": /adc/"+str(i+1)+" "+str(ADCvalue))
 						client.send_message("/adc/"+str(i+1), ADCvalue)
 						log.info("success")
 						automationhat.light.comms.write(0.5)
@@ -160,14 +161,22 @@ if __name__ == "__main__":
 
 		# CLIENT SETUP
 		parser_client = argparse.ArgumentParser()
-		parser_client.add_argument("--ip", default=CLIENT_ADDRESS,
+		parser_client.add_argument("--ip", default=PRIMARY_ADDRESS,
 				help="The ip of the OSC server")
 		parser_client.add_argument("--port", type=int, default=CLIENT_PORT,
 				help="The port the OSC server is listening on")
 		args_client = parser_client.parse_args()
-
 		client = udp_client.SimpleUDPClient(args_client.ip, args_client.port)
-		log.info("Sending to OSC host "+CLIENT_ADDRESS)
+		log.info("Sending to OSC host "+PRIMARY_ADDRESS)
+
+		parser_client = argparse.ArgumentParser()
+		parser_client.add_argument("--ip", default=PRIMARY_ADDRESS,
+				help="The ip of the OSC server")
+		parser_client.add_argument("--port", type=int, default=CLIENT_PORT,
+				help="The port the OSC server is listening on")
+		args_client = parser_client.parse_args()
+		client2 = udp_client.SimpleUDPClient(args_client.ip, args_client.port)
+		log.info("Sending to OSC host "+BACKUP_ADDRESS)
 
 		while stopper.run:
 			# HEARTBEAT TIMER
@@ -183,35 +192,48 @@ if __name__ == "__main__":
 					log.info("INPUT "+str(i+1)+" HEARTBEAT = "+str(INPUTSTATE[i]))
 					try:
 						automationhat.light.comms.write(0.1)
-						log.info("Sending to "+CLIENT_ADDRESS+" OSC: /heartbeat/input/"+str(i+1)+" "+str(INPUTSTATE[i]))
-						client.send_message("/heartbeat/input/"+str(i+1), INPUTSTATE[i])
+						log.info("Sending to "+PRIMARY_ADDRESS+" OSC: /input/"+str(i+1)+" "+str(INPUTSTATE[i]))
+						client.send_message("/input/"+str(i+1), INPUTSTATE[i])
 						log.info("success")
 						automationhat.light.comms.write(0.3)
 						automationhat.light.warn.write(0)
 					except:
-						print("host "+CLIENT_ADDRESS+" not found")
-						log.info("host "+CLIENT_ADDRESS+" not found")
+						print("host "+PRIMARY_ADDRESS+" not found")
+						log.info("host "+PRIMARY_ADDRESS+" not found")
+						automationhat.light.comms.write(0)
+						automationhat.light.warn.write(1)
+					# SEND TO BACKUP
+					try:
+						automationhat.light.comms.write(0.1)
+						log.info("Sending to "+BACKUP_ADDRESS+" OSC: /input/"+str(i+1)+" "+str(INPUTSTATE[i]))
+						client2.send_message("/input/"+str(i+1), INPUTSTATE[i])
+						log.info("success")
+						automationhat.light.comms.write(0.3)
+						automationhat.light.warn.write(0)
+					except:
+						print("host "+BACKUP_ADDRESS+" not found")
+						log.info("host "+BACKUP_ADDRESS+" not found")
 						automationhat.light.comms.write(0)
 						automationhat.light.warn.write(1)
 					i = i + 1
 				i = 0
-				while (i < 3): # SEND ADC STATES
-					ADCSTATE[i] = (automationhat.analog[i].read())
-					print ("ADC "+str(i+1)+" HEARTBEAT = "+str(ADCSTATE[i]))
-					log.info("ADC "+str(i+1)+" HEARTBEAT = "+str(ADCSTATE[i]))
-					try:
-						automationhat.light.comms.write(0.1)
-						log.info("Sending to "+CLIENT_ADDRESS+" OSC: /heartbeat/adc/"+str(i+1)+" "+str(ADCSTATE[i]))
-						client.send_message("/heartbeat/adc/"+str(i+1), ADCSTATE[i])
-						log.info("success")
-						automationhat.light.comms.write(0.3)
-						automationhat.light.warn.write(0)
-					except:
-						print("host "+CLIENT_ADDRESS+" not found")
-						log.info("host "+CLIENT_ADDRESS+" not found")
-						automationhat.light.comms.write(0)
-						automationhat.light.warn.write(1)
-					i = i + 1
+				# while (i < 3): # SEND ADC STATES
+				# 	ADCSTATE[i] = (automationhat.analog[i].read())
+				# 	print ("ADC "+str(i+1)+" HEARTBEAT = "+str(ADCSTATE[i]))
+				# 	log.info("ADC "+str(i+1)+" HEARTBEAT = "+str(ADCSTATE[i]))
+				# 	try:
+				# 		automationhat.light.comms.write(0.1)
+				# 		log.info("Sending to "+PRIMARY_ADDRESS+" OSC: /heartbeat/adc/"+str(i+1)+" "+str(ADCSTATE[i]))
+				# 		client.send_message("/heartbeat/adc/"+str(i+1), ADCSTATE[i])
+				# 		log.info("success")
+				# 		automationhat.light.comms.write(0.3)
+				# 		automationhat.light.warn.write(0)
+				# 	except:
+				# 		print("host "+PRIMARY_ADDRESS+" not found")
+				# 		log.info("host "+PRIMARY_ADDRESS+" not found")
+				# 		automationhat.light.comms.write(0)
+				# 		automationhat.light.warn.write(1)
+				# 	i = i + 1
 
 			# CHECK INPUT PINS
 			i = 0
@@ -222,19 +244,20 @@ if __name__ == "__main__":
 					INPUTSTATE[i] = INPUTvalue
 					print ("INPUT"+str(i+1)+" = "+str(INPUTSTATE[i]))
 					log.info("INPUT"+str(i+1)+" = "+str(INPUTSTATE[i]))
-					try:
-						automationhat.light.comms.write(0.1)
-						log.info("Sending OSC to "+CLIENT_ADDRESS+": /input/"+str(i+1)+" "+str(INPUTvalue))
-						print("Sending OSC to "+CLIENT_ADDRESS+": /input/"+str(i+1)+" "+str(INPUTvalue))
-						client.send_message("/input/"+str(i+1), INPUTvalue)
-						log.info("success")
-						automationhat.light.comms.write(0.5)
-						automationhat.light.warn.write(0)
-					except Exception as e:
-						print('Error sending OSC: '+ str(e))
-						log.info('Error sending OSC: '+ str(e))
-						automationhat.light.comms.write(0)
-						automationhat.light.warn.write(1)
+					TIMER = 5000
+					# try:
+					# 	automationhat.light.comms.write(0.1)
+					# 	log.info("Sending OSC to "+PRIMARY_ADDRESS+": /input/"+str(i+1)+" "+str(INPUTvalue))
+					# 	print("Sending OSC to "+PRIMARY_ADDRESS+": /input/"+str(i+1)+" "+str(INPUTvalue))
+					# 	client.send_message("/input/"+str(i+1), INPUTvalue)
+					# 	log.info("success")
+					# 	automationhat.light.comms.write(0.5)
+					# 	automationhat.light.warn.write(0)
+					# except Exception as e:
+					# 	print('Error sending OSC: '+ str(e))
+					# 	log.info('Error sending OSC: '+ str(e))
+					# 	automationhat.light.comms.write(0)
+					# 	automationhat.light.warn.write(1)
 				i = i + 1
 
 	print("Shutting down autoPi...")
@@ -244,5 +267,3 @@ if __name__ == "__main__":
 	print("OSC server shut down")
 	log.info("OSC server shut down")
 	CheckingADC.terminate()
-
-
