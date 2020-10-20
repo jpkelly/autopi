@@ -1,2 +1,2 @@
 # autopi
-Automation Hat OSC client/server
+Raspberry Pi/Automation Hat OSC client/server 
