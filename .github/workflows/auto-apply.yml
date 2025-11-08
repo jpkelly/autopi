@@ -1,0 +1,54 @@
+name: auto-apply
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Allow pushing using the automatically provided token
+          persist-credentials: true
+
+      - name: Create or update README.md
+        run: |
+          # Replace the body below with whatever automated changes you want CI to apply.
+          # This example writes/overwrites README.md with the comprehensive README content.
+          cat > README.md <<'EOF'
+# OSC Automation Hat
+
+A daemon to integrate an Automation HAT (Pimoroni) with an OSC (Open Sound Control) network. The service:
+
+- Listens for incoming OSC commands to control relays, LEDs and outputs.
+- Polls Automation HAT analog inputs (ADCs) and digital inputs and sends updates as OSC messages to one or two remote OSC hosts (primary and optional backup).
+- Sends periodic heartbeat messages to indicate liveness.
+- Logs to systemd journal.
+
+This repository includes a refactored, production-friendly implementation in `OSCautomationhat.py` that:
+- Encapsulates behavior in an `OSCAutomationHat` class.
+- Uses `threading.Event` and `threading.Lock` to coordinate clean shutdowns and protect shared state.
+- Avoids busy loops (uses `Event.wait()` with a configurable poll interval).
+- Creates OSC clients once and retries using a backup host if the primary fails.
+- Converts heartbeat to a time-based interval (seconds) rather than a loop counter.
+- Sends structured log output to systemd journal.
+
+Table of contents
+- Features
+- Requirements
+- Installation
+- Configuration and CLI
+- Running
+- Systemd service example
+- Hardware and testing notes
+- Troubleshooting
+- Contributing
+- License
+
+## (README content truncated here in the workflow for brevity)
+# If you want the entire README to be embedded in the workflow, paste the full README body as in README.md above.
