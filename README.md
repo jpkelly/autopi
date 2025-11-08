@@ -187,4 +187,4 @@ Contributions welcome. Please:
 - Follow the existing code style and keep hardware-dependent code guarded for dry-mode testability.
 
 ## License
-Include a license file in the repo (e.g. MIT) or add appropriate license text here.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
